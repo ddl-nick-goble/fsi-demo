@@ -1,1 +1,1 @@
-streamlit run dashboard.py --server.port=$DOMINO_RUN_PORT --server.address=0.0.0.0
+exec streamlit run dashboard.py --server.port=$DOMINO_RUN_PORT --server.address=0.0.0.0
