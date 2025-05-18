@@ -1,0 +1,9 @@
+[[pages]]
+path = "interest_rate_exposures.py"
+name = "Interest Rate Exposures"
+icon = "💹"
+
+[[pages]]
+path = "equity_exposures.py"
+name = "Equity Exposures"
+icon = "📈"
