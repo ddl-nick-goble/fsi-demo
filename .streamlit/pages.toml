@@ -1,10 +1,8 @@
 [[pages]]
-path = "dashboard.py"
+path = "equity_exposures.py"
 name = "Home"
-icon = ":house:"
 
 [[pages]]
 path = "interest_rate_page.py"
-name = "Interest Rate Exposures"
-icon = "💹"
+name = "Rates / Fixed Income"
 

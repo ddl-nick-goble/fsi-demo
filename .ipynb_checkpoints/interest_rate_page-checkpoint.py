@@ -1,5 +1,5 @@
 import streamlit as st
-st.set_page_config(layout="wide")  # <-- MUST be very first Streamlit call
+# st.set_page_config(layout="wide")  # <-- MUST be very first Streamlit call
 import pandas as pd
 import altair as alt
 from domino.data_sources import DataSourceClient

@@ -15,20 +15,17 @@ primaryColor = "#543FDD"              # purple5000
 backgroundColor = "#FFFFFF"           # neutralLight50
 secondaryBackgroundColor = "#FAFAFA"  # neutralLight100
 textColor = "#2E2E38"                 # neutralDark700
-font = "Inter"                        # explicit Inter
 EOF
 
 # Pages definition for st.navigation
 cat <<EOF > .streamlit/pages.toml
 [[pages]]
-path = "dashboard.py"
+path = "equity_exposures.py"
 name = "Home"
-icon = ":house:"
 
 [[pages]]
 path = "interest_rate_page.py"
-name = "Interest Rate Exposures"
-icon = "💹"
+name = "Rates / Fixed Income"
 
 EOF
 
