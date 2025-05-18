@@ -1,0 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Exile&display=swap');
+
+html, body, [class*="css"] {
+  font-family: 'Exile', sans-serif !important;
+}

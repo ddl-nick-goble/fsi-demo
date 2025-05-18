@@ -4,6 +4,9 @@ import pandas as pd
 import altair as alt
 from domino.data_sources import DataSourceClient
 
+with open("style.css") as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
 @st.cache_data
 def load_reference_rates():
     ds = DataSourceClient().get_datasource("market_data")
@@ -56,46 +59,61 @@ def main():
     )
 
     # --- Create charts ---
-    rate_chart = alt.Chart(df).mark_line(point=True).encode(
-        x=alt.X("rate_date:T", title=""),
-        y=alt.Y(
-            "rate:Q",
-            title="Overnight Rate (%)",
-            axis=alt.Axis(labelExpr="format(datum.value, '.2f') + '%'")
-        ),
-        color=alt.Color("rate_type:N", legend=overlay_legend('top-left')),
-        tooltip=[
-            alt.Tooltip("rate_date:T", title="Date"),
-            alt.Tooltip("rate:Q", title="Rate", format=".2f"),
-            alt.Tooltip("rate_type:N", title="Type")
-        ]
-    ).properties(height=400).interactive()
+    rate_chart = (
+        alt.Chart(df).mark_line(point=True).encode(
+            x=alt.X("rate_date:T", title=""),
+            y=alt.Y(
+                "rate:Q",
+                title="Overnight Rate (%)",
+                axis=alt.Axis(labelExpr="format(datum.value, '.2f') + '%'")
+            ),
+            color=alt.Color("rate_type:N", legend=overlay_legend('top-left')),
+            tooltip=[
+                alt.Tooltip("rate_date:T", title="Date"),
+                alt.Tooltip("rate:Q", title="Rate", format=".2f"),
+                alt.Tooltip("rate_type:N", title="Type")
+            ]
+        ).properties(height=400).interactive()
+         .configure_axis(labelFont='Exile', titleFont='Exile')
+         .configure_legend(labelFont='Exile', titleFont='Exile')
+         .configure_title(font='Exile')
+    )
 
-    volume_chart = alt.Chart(df).mark_bar().encode(
-        x=alt.X("rate_date:T", title="Date"),
-        y=alt.Y(
-            "volume_in_billions:Q",
-            title="Volume ($ billion)",
-            axis=alt.Axis(labelExpr="'$' + format(datum.value, ',.0f')")
-        ),
-        color=alt.Color("rate_type:N", legend=overlay_legend('top-left')),
-        tooltip=[
-            alt.Tooltip("rate_date:T", title="Date"),
-            alt.Tooltip("volume_in_billions:Q", title="Volume"),
-            alt.Tooltip("rate_type:N", title="Type")
-        ]
-    ).properties(height=400).interactive()
+    volume_chart = (
+        alt.Chart(df).mark_bar().encode(
+            x=alt.X("rate_date:T", title="Date"),
+            y=alt.Y(
+                "volume_in_billions:Q",
+                title="Volume ($ billion)",
+                axis=alt.Axis(labelExpr="'$' + format(datum.value, ',.0f')")
+            ),
+            color=alt.Color("rate_type:N", legend=overlay_legend('top-left')),
+            tooltip=[
+                alt.Tooltip("rate_date:T", title="Date"),
+                alt.Tooltip("volume_in_billions:Q", title="Volume"),
+                alt.Tooltip("rate_type:N", title="Type")
+            ]
+        ).properties(height=400).interactive()
+         .configure_axis(labelFont='Exile', titleFont='Exile')
+         .configure_legend(labelFont='Exile', titleFont='Exile')
+         .configure_title(font='Exile')
+    )
 
-    spread_chart = alt.Chart(spread_long).mark_line(point=False).encode(
-        x=alt.X("rate_date:T", title=""),
-        y=alt.Y("spread:Q", title="Spread vs SOFR (%)", axis=alt.Axis(format=".2f")),
-        color=alt.Color("rate_type:N", legend=overlay_legend('bottom-left')),
-        tooltip=[
-            alt.Tooltip("rate_date:T", title="Date"),
-            alt.Tooltip("rate_type:N", title="Rate"),
-            alt.Tooltip("spread:Q", title="Spread", format=".2f")
-        ]
-    ).properties(height=400).interactive()
+    spread_chart = (
+        alt.Chart(spread_long).mark_line(point=False).encode(
+            x=alt.X("rate_date:T", title=""),
+            y=alt.Y("spread:Q", title="Spread vs SOFR (%)", axis=alt.Axis(format=".2f")),
+            color=alt.Color("rate_type:N", legend=overlay_legend('bottom-left')),
+            tooltip=[
+                alt.Tooltip("rate_date:T", title="Date"),
+                alt.Tooltip("rate_type:N", title="Rate"),
+                alt.Tooltip("spread:Q", title="Spread", format=".2f")
+            ]
+        ).properties(height=400).interactive()
+         .configure_axis(labelFont='Exile', titleFont='Exile')
+         .configure_legend(labelFont='Exile', titleFont='Exile')
+         .configure_title(font='Exile')
+    )
 
     # --- Layout 2x3 ---
     col1, col2 = st.columns(2)
@@ -117,7 +135,8 @@ def main():
         latest_date = df["rate_date"].max()
         latest_df = df[df["rate_date"] == latest_date]
 
-        bar_chart = alt.Chart(latest_df).mark_bar().encode(
+    bar_chart = (
+        alt.Chart(latest_df).mark_bar().encode(
             x=alt.X("rate_type:N", title="Rate Type"),
             y=alt.Y("volume_in_billions:Q", title="Volume ($ billion)"),
             color=alt.Color("rate_type:N", legend=None),
@@ -126,7 +145,11 @@ def main():
                 alt.Tooltip("volume_in_billions:Q", title="Volume", format=",.0f")
             ]
         ).properties(height=400).interactive()
+         .configure_axis(labelFont='Exile', titleFont='Exile')
+         .configure_legend(labelFont='Exile', titleFont='Exile')
+         .configure_title(font='Exile')
+    )
 
-        st.altair_chart(bar_chart, use_container_width=True)
+    st.altair_chart(bar_chart, use_container_width=True)
 
 main()
