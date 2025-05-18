@@ -28,6 +28,8 @@ def load_curve_for_date(selected_date: date) -> pd.DataFrame:
     df = ds.query(sql).to_pandas()
     return df
 
+dset = []
+
 # ─── App ────────────────────────────────────────────────────────────────────
 def main():
     # 1) Calendar picker (single date)
@@ -38,7 +40,8 @@ def main():
         min_value=dates[0],
         max_value=dates[-1],
     )
-
+    dset.append(pick)
+    print(dset)
     # 2) Load & plot
     curve = load_curve_for_date(pick)
     if curve.empty:
@@ -60,6 +63,14 @@ def main():
         .interactive()
     )
     st.altair_chart(chart, use_container_width=True)
+
+    # ─── New: show the picked date in a div under the chart ────────────────
+    st.markdown(
+        f"<div style='margin-top:10px; font-size:14px; color:#555;'>"
+        f"Selected curve date: <strong>{pick}</strong>"
+        f"</div>",
+        unsafe_allow_html=True
+    )
 
 if __name__ == "__main__":
     main()
