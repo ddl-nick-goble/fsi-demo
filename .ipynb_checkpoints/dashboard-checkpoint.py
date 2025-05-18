@@ -1,7 +1,7 @@
 import streamlit as st
 
 # Set global page config once
-# st.set_page_config(layout="wide")
+st.set_page_config(layout="wide")
 
 from st_pages import add_page_title, get_nav_from_toml
 
