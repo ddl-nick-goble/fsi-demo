@@ -11,7 +11,7 @@ enableCORS = false
 enableXsrfProtection = false
 
 [theme]
-primaryColor = "#543FDE"              # purple500
+primaryColor = "#543FDD"              # purple5000
 backgroundColor = "#FFFFFF"           # neutralLight50
 secondaryBackgroundColor = "#FAFAFA"  # neutralLight100
 textColor = "#2E2E38"                 # neutralDark700
