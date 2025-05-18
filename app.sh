@@ -26,7 +26,7 @@ name = "Home"
 icon = ":house:"
 
 [[pages]]
-path = "interest_rate_exposure.py"
+path = "interest_rate_page.py"
 name = "Interest Rate Exposures"
 icon = "💹"
 
