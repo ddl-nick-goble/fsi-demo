@@ -1,2 +1,3 @@
 streamlit
 st-pages
+streamlit-tags

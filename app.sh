@@ -27,6 +27,10 @@ name = "Home"
 path = "interest_rate_page.py"
 name = "Rates / Fixed Income"
 
+[[pages]]
+path = "rate_curves_page.py"
+name = "Rate Curves"
+
 EOF
 
 streamlit run dashboard.py

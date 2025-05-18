@@ -75,7 +75,7 @@ def main():
 
     volume_chart = (
         alt.Chart(df).mark_bar().encode(
-            x=alt.X("rate_date:T", title="Date"),
+            x=alt.X("rate_date:T", title=""),
             y=alt.Y(
                 "volume_in_billions:Q",
                 title="Volume ($ billion)",
@@ -131,7 +131,7 @@ def main():
 
         bar_chart = (
             alt.Chart(latest_df).mark_bar().encode(
-                x=alt.X("rate_type:N", title="Rate Type"),
+                x=alt.X("rate_type:N", title=""),
                 y=alt.Y("volume_in_billions:Q", title="Volume ($ billion)"),
                 color=alt.Color("rate_type:N", legend=None),
                 tooltip=[
