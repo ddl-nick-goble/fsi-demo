@@ -1,11 +1,7 @@
 import streamlit as st
-# st.set_page_config(layout="wide")  # <-- MUST be very first Streamlit call
 import pandas as pd
 import altair as alt
 from domino.data_sources import DataSourceClient
-
-with open("style.css") as f:
-    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 @st.cache_data
 def load_reference_rates():
@@ -32,7 +28,6 @@ def overlay_legend(orient='none'):
     )
 
 def main():
-
     st.markdown(
         """
         <style>
@@ -47,7 +42,6 @@ def main():
         unsafe_allow_html=True
     )
 
-    st.title("Interest Rates Dashboard")
     df = load_reference_rates()
 
     # --- Pivot and prep for SOFR spread ---
@@ -74,9 +68,9 @@ def main():
                 alt.Tooltip("rate_type:N", title="Type")
             ]
         ).properties(height=400).interactive()
-         .configure_axis(labelFont='Exile', titleFont='Exile')
-         .configure_legend(labelFont='Exile', titleFont='Exile')
-         .configure_title(font='Exile')
+         .configure_axis(labelFont='Inter', titleFont='Inter')
+         .configure_legend(labelFont='Inter', titleFont='Inter')
+         .configure_title(font='Inter')
     )
 
     volume_chart = (
@@ -94,9 +88,9 @@ def main():
                 alt.Tooltip("rate_type:N", title="Type")
             ]
         ).properties(height=400).interactive()
-         .configure_axis(labelFont='Exile', titleFont='Exile')
-         .configure_legend(labelFont='Exile', titleFont='Exile')
-         .configure_title(font='Exile')
+         .configure_axis(labelFont='Inter', titleFont='Inter')
+         .configure_legend(labelFont='Inter', titleFont='Inter')
+         .configure_title(font='Inter')
     )
 
     spread_chart = (
@@ -110,9 +104,9 @@ def main():
                 alt.Tooltip("spread:Q", title="Spread", format=".2f")
             ]
         ).properties(height=400).interactive()
-         .configure_axis(labelFont='Exile', titleFont='Exile')
-         .configure_legend(labelFont='Exile', titleFont='Exile')
-         .configure_title(font='Exile')
+         .configure_axis(labelFont='Inter', titleFont='Inter')
+         .configure_legend(labelFont='Inter', titleFont='Inter')
+         .configure_title(font='Inter')
     )
 
     # --- Layout 2x3 ---
@@ -135,21 +129,21 @@ def main():
         latest_date = df["rate_date"].max()
         latest_df = df[df["rate_date"] == latest_date]
 
-    bar_chart = (
-        alt.Chart(latest_df).mark_bar().encode(
-            x=alt.X("rate_type:N", title="Rate Type"),
-            y=alt.Y("volume_in_billions:Q", title="Volume ($ billion)"),
-            color=alt.Color("rate_type:N", legend=None),
-            tooltip=[
-                alt.Tooltip("rate_type:N", title="Rate Type"),
-                alt.Tooltip("volume_in_billions:Q", title="Volume", format=",.0f")
-            ]
-        ).properties(height=400).interactive()
-         .configure_axis(labelFont='Exile', titleFont='Exile')
-         .configure_legend(labelFont='Exile', titleFont='Exile')
-         .configure_title(font='Exile')
-    )
-
-    st.altair_chart(bar_chart, use_container_width=True)
+        bar_chart = (
+            alt.Chart(latest_df).mark_bar().encode(
+                x=alt.X("rate_type:N", title="Rate Type"),
+                y=alt.Y("volume_in_billions:Q", title="Volume ($ billion)"),
+                color=alt.Color("rate_type:N", legend=None),
+                tooltip=[
+                    alt.Tooltip("rate_type:N", title="Rate Type"),
+                    alt.Tooltip("volume_in_billions:Q", title="Volume", format=",.0f")
+                ]
+            ).properties(height=400).interactive()
+             .configure_axis(labelFont='Inter', titleFont='Inter')
+             .configure_legend(labelFont='Inter', titleFont='Inter')
+             .configure_title(font='Inter')
+        )
+    
+        st.altair_chart(bar_chart, use_container_width=True)
 
 main()
