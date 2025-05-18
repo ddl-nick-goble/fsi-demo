@@ -29,6 +29,7 @@ def overlay_legend(orient='none'):
     )
 
 def main():
+
     st.markdown(
         """
         <style>
@@ -128,6 +129,4 @@ def main():
 
         st.altair_chart(bar_chart, use_container_width=True)
 
-
-if __name__ == "__main__":
-    main()
+main()
