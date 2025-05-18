@@ -1,6 +1,6 @@
-mkdir -p ~/.streamlit
+mkdir -p .streamlit
 
-cat <<EOF > ~/.streamlit/config.toml
+cat <<EOF > .streamlit/config.toml
 [browser]
 gatherUsageStats = true
 
@@ -19,11 +19,17 @@ font = "Inter"                        # explicit Inter
 EOF
 
 # Pages definition for st.navigation
-cat <<EOF > ~/.streamlit/pages.toml
+cat <<EOF > .streamlit/pages.toml
 [[pages]]
 path = "dashboard.py"
 name = "Home"
 icon = ":house:"
+
+[[pages]]
+path = "interest_rate_exposure.py"
+name = "Interest Rate Exposures"
+icon = "💹"
+
 EOF
 
 streamlit run dashboard.py

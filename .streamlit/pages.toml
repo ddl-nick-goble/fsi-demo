@@ -1,0 +1,10 @@
+[[pages]]
+path = "dashboard.py"
+name = "Home"
+icon = ":house:"
+
+[[pages]]
+path = "interest_rate_exposure.py"
+name = "Interest Rate Exposures"
+icon = "💹"
+
