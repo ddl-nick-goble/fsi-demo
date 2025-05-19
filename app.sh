@@ -25,7 +25,7 @@ name = "Home"
 
 [[pages]]
 path = "interest_rate_page.py"
-name = "Rates / Fixed Income"
+name = "Overnight Reference Rates"
 
 [[pages]]
 path = "rate_curves_page.py"

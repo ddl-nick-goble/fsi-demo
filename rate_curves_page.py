@@ -41,9 +41,13 @@ def remove_pills():
             st.session_state.selected_dates.remove(d)
     st.session_state.pills_selected = []
 
+def clear_all():
+    st.session_state.selected_dates = []
+    # also clear any active pill selections
+    st.session_state.pills_selected = []
+
 # ─── Helper to pick closest earlier date ──────────────────────────────────────
 def closest_before(target: date, all_dates: list[date]) -> date | None:
-    # return the max date in all_dates <= target, or None if none
     candidates = [d for d in all_dates if d <= target]
     return max(candidates) if candidates else None
 
@@ -52,13 +56,10 @@ def main():
     dates = get_available_dates()
     latest = dates[-1]
 
-    # Compute end-of-last-year candidate
+    # Compute EOY and EOM defaults
     prev_year_end = date(latest.year - 1, 12, 31)
     ye_candidate = closest_before(prev_year_end, dates)
-
-    # Compute end-of-last-month candidate
     if latest.month == 1:
-        # last month is Dec of previous year
         lm_year, lm_month = latest.year - 1, 12
     else:
         lm_year, lm_month = latest.year, latest.month - 1
@@ -66,7 +67,7 @@ def main():
     prev_month_end = date(lm_year, lm_month, last_day)
     me_candidate = closest_before(prev_month_end, dates)
 
-    # Initialize session state on first run with [latest, year-end, month-end]
+    # Seed session on first load
     if "selected_dates" not in st.session_state:
         init = [latest]
         if ye_candidate and ye_candidate not in init:
@@ -74,32 +75,33 @@ def main():
         if me_candidate and me_candidate not in init:
             init.append(me_candidate)
         st.session_state.selected_dates = init
-
-    # Always default the date picker to the latest
     if "selected_date" not in st.session_state:
         st.session_state.selected_date = latest
 
-    # 1) Calendar picker with callback
-    st.date_input(
-        "Select curve date",
-        key="selected_date",
-        min_value=dates[0],
-        max_value=latest,
-        on_change=on_date_change
-    )
+    # ─── TOP CONTROLS IN TWO COLUMNS ─────────────────────────────────────────
+    col1, col2 = st.columns(2)
 
-    # 2) Show each picked date as a removable pill
-    pill_opts = [d.strftime("%Y/%m/%d") for d in st.session_state.selected_dates]
-    st.pills(
-        label="Dates selected so far (click any to remove):",
-        options=pill_opts,
-        selection_mode="multi",
-        default=[],
-        key="pills_selected",
-        on_change=remove_pills
-    )
+    with col1:
+        st.date_input(
+            "Select curve date",
+            key="selected_date",
+            min_value=dates[0],
+            max_value=latest,
+            on_change=on_date_change
+        )
 
-    # 3) Load & combine all curves in history
+    with col2:
+        pill_opts = [d.strftime("%Y/%m/%d") for d in st.session_state.selected_dates]
+        st.pills(
+            label="Dates selected so far (click to remove):",
+            options=pill_opts,
+            selection_mode="multi",
+            default=[],
+            key="pills_selected",
+            on_change=remove_pills
+        )
+
+    # ─── Load & plot history ─────────────────────────────────────────────────
     all_dfs = []
     for dt in st.session_state.selected_dates:
         df = load_curve_for_date(dt)
@@ -116,7 +118,6 @@ def main():
         lambda d: d.strftime("%Y/%m/%d")
     )
 
-    # 4) Plot all curves, colored by date
     chart = (
         alt.Chart(history_df)
         .mark_line(point=True)
@@ -141,6 +142,13 @@ def main():
 
     st.altair_chart(chart, use_container_width=True)
 
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.button("Clear all", on_click=clear_all)
+
+    with col2:
+        pass
 
 if __name__ == "__main__":
     main()
