@@ -2,8 +2,7 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 from domino.data_sources import DataSourceClient
-from datetime import date
-from streamlit_extras.stodo import to_do 
+from datetime import date, datetime
 
 # ─── Data access ────────────────────────────────────────────────────────────
 ds = DataSourceClient().get_datasource("market_data")
@@ -26,14 +25,25 @@ def load_curve_for_date(selected_date: date) -> pd.DataFrame:
      WHERE curve_date = '{selected_date}'
      ORDER BY tenor_num;
     """
-    df = ds.query(sql).to_pandas()
-    return df
+    return ds.query(sql).to_pandas()
 
-# ─── Session‐state callback ──────────────────────────────────────────────────
+# ─── Callbacks to modify session_state ────────────────────────────────────────
 def on_date_change():
+    """When the user picks a new date, append it if not already present."""
     new = st.session_state.selected_date
     if new not in st.session_state.selected_dates:
         st.session_state.selected_dates.append(new)
+
+def remove_pills():
+    """When the user clicks a pill, remove that date from our history."""
+    # st.pills writes its selection into session_state['pills_selected']
+    for s in st.session_state.pills_selected:
+        # parse back into a date
+        d = datetime.strptime(s, "%Y/%m/%d").date()
+        if d in st.session_state.selected_dates:
+            st.session_state.selected_dates.remove(d)
+    # clear the pill selection so pills go away immediately
+    st.session_state.pills_selected = []
 
 # ─── App ────────────────────────────────────────────────────────────────────
 def main():
@@ -46,7 +56,7 @@ def main():
     if "selected_date" not in st.session_state:
         st.session_state.selected_date = latest
 
-    # 1) Date picker with callback
+    # 1) Calendar picker with callback
     st.date_input(
         "Select curve date",
         key="selected_date",
@@ -55,9 +65,18 @@ def main():
         on_change=on_date_change
     )
 
-    st.write("# Dates selected so far:", st.session_state.selected_dates)
+    # 2) Show each picked date as a removable pill
+    pill_opts = [d.strftime("%Y/%m/%d") for d in st.session_state.selected_dates]
+    st.pills(
+        label="Dates selected so far (click any to remove):",
+        options=pill_opts,
+        selection_mode="multi",      # allow selecting multiple pills at once
+        default=[],                  # start with none “active”
+        key="pills_selected",        # writes list of clicked pills here
+        on_change=remove_pills       # callback to drop them from state
+    )
 
-    # 2) Load & combine all curves in history
+    # 3) Load & combine all curves in history
     all_dfs = []
     for dt in st.session_state.selected_dates:
         df = load_curve_for_date(dt)
@@ -74,7 +93,7 @@ def main():
         lambda d: d.strftime("%Y/%m/%d")
     )
 
-    # 3) Plot all curves, colored by date
+    # 4) Plot all curves, colored by date
     chart = (
         alt.Chart(history_df)
         .mark_line(point=True)
