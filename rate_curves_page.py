@@ -35,15 +35,14 @@ def on_date_change():
         st.session_state.selected_dates.append(new)
 
 def remove_pills():
-    for s in st.session_state.pills_selected:
-        d = datetime.strptime(s, "%Y/%m/%d").date()
-        if d in st.session_state.selected_dates:
-            st.session_state.selected_dates.remove(d)
-    st.session_state.pills_selected = []
-
-def clear_all():
-    st.session_state.selected_dates = []
-    # also clear any active pill selections
+    selected = st.session_state.pills_selected
+    if "Clear all" in selected:
+        st.session_state.selected_dates = []
+    else:
+        for s in selected:
+            d = datetime.strptime(s, "%Y/%m/%d").date()
+            if d in st.session_state.selected_dates:
+                st.session_state.selected_dates.remove(d)
     st.session_state.pills_selected = []
 
 # ─── Helper to pick closest earlier date ──────────────────────────────────────
@@ -56,7 +55,7 @@ def main():
     dates = get_available_dates()
     latest = dates[-1]
 
-    # Compute EOY and EOM defaults
+    # Compute defaults (EOY, EOM)
     prev_year_end = date(latest.year - 1, 12, 31)
     ye_candidate = closest_before(prev_year_end, dates)
     if latest.month == 1:
@@ -67,7 +66,7 @@ def main():
     prev_month_end = date(lm_year, lm_month, last_day)
     me_candidate = closest_before(prev_month_end, dates)
 
-    # Seed session on first load
+    # Seed session state
     if "selected_dates" not in st.session_state:
         init = [latest]
         if ye_candidate and ye_candidate not in init:
@@ -78,10 +77,9 @@ def main():
     if "selected_date" not in st.session_state:
         st.session_state.selected_date = latest
 
-    # ─── TOP CONTROLS IN TWO COLUMNS ─────────────────────────────────────────
-    col1, col2 = st.columns(2)
-
-    with col1:
+    # ─── TOP CONTROLS ──────────────────────────────────────────────────────────
+    c1, c2 = st.columns(2)
+    with c1:
         st.date_input(
             "Select curve date",
             key="selected_date",
@@ -89,19 +87,18 @@ def main():
             max_value=latest,
             on_change=on_date_change
         )
-
-    with col2:
-        pill_opts = [d.strftime("%Y/%m/%d") for d in st.session_state.selected_dates]
+    with c2:
+        opts = [d.strftime("%Y/%m/%d") for d in st.session_state.selected_dates] + ["Clear all"]
         st.pills(
-            label="Dates selected so far (click to remove):",
-            options=pill_opts,
+            label="Dates selected so far (click to remove or clear all):",
+            options=opts,
             selection_mode="multi",
             default=[],
             key="pills_selected",
             on_change=remove_pills
         )
 
-    # ─── Load & plot history ─────────────────────────────────────────────────
+    # ─── Load & combine curves ────────────────────────────────────────────────
     all_dfs = []
     for dt in st.session_state.selected_dates:
         df = load_curve_for_date(dt)
@@ -118,16 +115,42 @@ def main():
         lambda d: d.strftime("%Y/%m/%d")
     )
 
+    # ─── Determine scale_mode (default linear) ─────────────────────────────────
+    scale_mode = st.session_state.get("scale_mode", "linear")
+
+    # ─── Build X encoding for chart ────────────────────────────────────────────
+    if scale_mode == "even spacing":
+        # enable vertical grid lines for ordinal axis
+        x_enc = alt.X(
+            "tenor_num:O",
+            title="Tenor (yrs)",
+            axis=alt.Axis(
+                labelExpr="format(datum.value, '.2f')",
+                labelAngle=0,
+                grid=True
+            )
+        )
+    else:
+        x_enc = alt.X(
+            "tenor_num:Q",
+            title="Tenor (yrs)",
+            axis=alt.Axis(
+                labelAngle=0,
+                grid=True  # quantitative also shows grid
+            )
+        )
+
+    # ─── Plot curves ───────────────────────────────────────────────────────────
     chart = (
         alt.Chart(history_df)
         .mark_line(point=True)
         .encode(
-            x=alt.X("tenor_num:Q", title="Tenor (yrs)"),
+            x=x_enc,
             y=alt.Y(
                 "rate:Q",
                 title="Rate (%)",
                 scale=alt.Scale(zero=False),
-                axis=alt.Axis(labelExpr="format(datum.value, '.2f') + '%'")
+                axis=alt.Axis(labelExpr="format(datum.value, '.2f') + '%'", grid=True)
             ),
             color=alt.Color("curve_date_str:N", title="Curve Date"),
             tooltip=[
@@ -139,16 +162,15 @@ def main():
         .properties(width=700, height=400)
         .interactive()
     )
-
     st.altair_chart(chart, use_container_width=True)
 
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.button("Clear all", on_click=clear_all)
-
-    with col2:
-        pass
+    # ─── X-AXIS SPACING TOGGLE UNDER THE CHART ─────────────────────────────────
+    st.radio(
+        "X-axis spacing:",
+        options=["linear", "even spacing"],
+        index=0,
+        key="scale_mode"
+    )
 
 if __name__ == "__main__":
     main()
