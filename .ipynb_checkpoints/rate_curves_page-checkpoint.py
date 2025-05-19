@@ -169,7 +169,8 @@ def main():
         "X-axis spacing:",
         options=["linear", "even spacing"],
         index=0,
-        key="scale_mode"
+        key="scale_mode",
+        horizontal=True
     )
 
 if __name__ == "__main__":
