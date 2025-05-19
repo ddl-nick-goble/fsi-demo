@@ -56,6 +56,8 @@ def main():
             y=alt.Y(
                 "rate:Q",
                 title="Rate (%)",
+                # disable forcing a zero baseline → domain = [dataMin, dataMax]
+                scale=alt.Scale(zero=False),
                 axis=alt.Axis(labelExpr="format(datum.value, '.2f') + '%'")
             ),
         )
