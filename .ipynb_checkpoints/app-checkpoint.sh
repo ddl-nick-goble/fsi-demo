@@ -6,7 +6,7 @@ gatherUsageStats = true
 
 [server]
 address = "0.0.0.0"
-port = 8501
+port = 8888
 enableCORS = false
 enableXsrfProtection = false
 
