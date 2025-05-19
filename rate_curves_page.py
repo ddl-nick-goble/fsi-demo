@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
+import calendar
 from domino.data_sources import DataSourceClient
 from datetime import date, datetime
 
@@ -29,30 +30,52 @@ def load_curve_for_date(selected_date: date) -> pd.DataFrame:
 
 # ─── Callbacks to modify session_state ────────────────────────────────────────
 def on_date_change():
-    """When the user picks a new date, append it if not already present."""
     new = st.session_state.selected_date
     if new not in st.session_state.selected_dates:
         st.session_state.selected_dates.append(new)
 
 def remove_pills():
-    """When the user clicks a pill, remove that date from our history."""
-    # st.pills writes its selection into session_state['pills_selected']
     for s in st.session_state.pills_selected:
-        # parse back into a date
         d = datetime.strptime(s, "%Y/%m/%d").date()
         if d in st.session_state.selected_dates:
             st.session_state.selected_dates.remove(d)
-    # clear the pill selection so pills go away immediately
     st.session_state.pills_selected = []
+
+# ─── Helper to pick closest earlier date ──────────────────────────────────────
+def closest_before(target: date, all_dates: list[date]) -> date | None:
+    # return the max date in all_dates <= target, or None if none
+    candidates = [d for d in all_dates if d <= target]
+    return max(candidates) if candidates else None
 
 # ─── App ────────────────────────────────────────────────────────────────────
 def main():
     dates = get_available_dates()
     latest = dates[-1]
 
-    # Initialize session state on first run:
+    # Compute end-of-last-year candidate
+    prev_year_end = date(latest.year - 1, 12, 31)
+    ye_candidate = closest_before(prev_year_end, dates)
+
+    # Compute end-of-last-month candidate
+    if latest.month == 1:
+        # last month is Dec of previous year
+        lm_year, lm_month = latest.year - 1, 12
+    else:
+        lm_year, lm_month = latest.year, latest.month - 1
+    last_day = calendar.monthrange(lm_year, lm_month)[1]
+    prev_month_end = date(lm_year, lm_month, last_day)
+    me_candidate = closest_before(prev_month_end, dates)
+
+    # Initialize session state on first run with [latest, year-end, month-end]
     if "selected_dates" not in st.session_state:
-        st.session_state.selected_dates = [latest]
+        init = [latest]
+        if ye_candidate and ye_candidate not in init:
+            init.append(ye_candidate)
+        if me_candidate and me_candidate not in init:
+            init.append(me_candidate)
+        st.session_state.selected_dates = init
+
+    # Always default the date picker to the latest
     if "selected_date" not in st.session_state:
         st.session_state.selected_date = latest
 
@@ -70,10 +93,10 @@ def main():
     st.pills(
         label="Dates selected so far (click any to remove):",
         options=pill_opts,
-        selection_mode="multi",      # allow selecting multiple pills at once
-        default=[],                  # start with none “active”
-        key="pills_selected",        # writes list of clicked pills here
-        on_change=remove_pills       # callback to drop them from state
+        selection_mode="multi",
+        default=[],
+        key="pills_selected",
+        on_change=remove_pills
     )
 
     # 3) Load & combine all curves in history
