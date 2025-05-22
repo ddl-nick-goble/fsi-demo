@@ -1,0 +1,4 @@
+inventory_date,bond_id,cusip,isin,description,issue_date,maturity_date,coupon,quantity,entry_mtm,position_type
+2025-05-20,912797QA8,912797QA8,,8-Week,2025-05-20,2025-07-15,,75000000000.0,,Single-Price
+2025-05-20,912797PS0,912797PS0,,4-Week,2025-05-20,2025-06-17,,85000000000.0,,Single-Price
+2025-05-20,912797QU4,912797QU4,,17-Week,2025-05-20,2025-09-16,,60000000000.0,,Single-Price
