@@ -1,12 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Default to prod port 8888, but allow override via ENV or CLI arg
+PORT="${PORT:-${1:-8888}}"
+
 mkdir -p .streamlit
 
-cat <<EOF > .streamlit/config.toml
+cat > .streamlit/config.toml <<EOF
 [browser]
 gatherUsageStats = true
 
 [server]
 address = "0.0.0.0"
-port = 8888
+port = $PORT
 enableCORS = false
 enableXsrfProtection = false
 
@@ -17,8 +23,7 @@ secondaryBackgroundColor = "#FAFAFA"  # neutralLight100
 textColor = "#2E2E38"                 # neutralDark700
 EOF
 
-# Pages definition for st.navigation
-cat <<EOF > .streamlit/pages.toml
+cat > .streamlit/pages.toml <<EOF
 [[pages]]
 path = "home_page.py"
 name = "Home"
@@ -34,7 +39,6 @@ name = "Rate Curves"
 [[pages]]
 path = "liability_overview_page.py"
 name = "Liability Overview"
-
 EOF
 
-streamlit run dashboard.py
+streamlit run apps/dashboard.py
