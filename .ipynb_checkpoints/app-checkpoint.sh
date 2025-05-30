@@ -20,16 +20,20 @@ EOF
 # Pages definition for st.navigation
 cat <<EOF > .streamlit/pages.toml
 [[pages]]
-path = "equity_exposures.py"
+path = "home_page.py"
 name = "Home"
 
 [[pages]]
 path = "interest_rate_page.py"
-name = "Rates / Fixed Income"
+name = "Overnight Rates"
 
 [[pages]]
 path = "rate_curves_page.py"
 name = "Rate Curves"
+
+[[pages]]
+path = "liability_overview_page.py"
+name = "Liability Overview"
 
 EOF
 

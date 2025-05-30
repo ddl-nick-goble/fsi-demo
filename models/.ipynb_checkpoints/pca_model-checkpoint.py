@@ -1,0 +1,89 @@
+import numpy as np
+
+
+def legacy_pca(X_np: np.ndarray,
+               n_components: int,
+               n_iter: int = 1
+              ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    A legacy power-iteration PCA with poor initialization.
+    
+    Args:
+      X_np         : (n_samples, n_features) data matrix
+      n_components : how many PCs to extract
+      n_iter       : power-iteration steps (1 = very poor fit)
+    
+    Returns:
+      components   : (n_components, n_features) basis vectors
+      explained_ratio : (n_components,) fraction of total variance
+      mean         : (n_features,) feature means
+      scores       : (n_samples, n_components) projected coordinates
+    """
+    # 1) center
+    X = X_np.astype(float)
+    n_samples, n_features = X.shape
+    mean = X.mean(axis=0)
+    Xc   = X - mean
+
+    # 2) bad init Q₀ and orthonormalize
+    Q, _ = np.linalg.qr(np.ones((n_features, n_components)))
+
+    # 3) power-iterations
+    for _ in range(n_iter):
+        Z, _ = np.linalg.qr(Xc.T @ (Xc @ Q))
+        Q = Z
+
+    # 4) components & scores
+    components = Q.T                          # shape (n_components, n_features)
+    scores     = Xc @ components.T           # (n_samples, n_components)
+
+    # 5) explained‐variance and ratio
+    denom = n_samples - 1
+    total_var = np.var(Xc, axis=0, ddof=1).sum()
+    explained_variance = np.array([
+        (scores[:, i]**2).sum() / denom
+        for i in range(n_components)
+    ])
+    explained_ratio = explained_variance / total_var
+
+    return components, explained_ratio, mean, scores
+
+
+# import tensorflow as tf
+# def tf_pca(X_np, n_components):
+#     """
+#     X_np: numpy array of shape (n_samples, n_features)
+#     Returns: (components, explained_variance_ratio, mean, scores)
+#     """
+#     # Convert to tensor and center
+#     # first convert to a float64 tensor
+#     X = tf.cast(tf.convert_to_tensor(X_np), tf.float64)
+#     # now we can grab n_samples from X and cast to the same dtype
+#     denom = tf.cast(tf.shape(X)[0] - 1, X.dtype)
+
+#     X = tf.cast(tf.convert_to_tensor(X_np),  X.dtype)
+#     mean = tf.reduce_mean(X, axis=0, keepdims=True)
+#     Xc = X - mean
+
+#     # Compute SVD
+#     #   Xc = U @ diag(S) @ V^T
+#     S, U, V = tf.linalg.svd(Xc, full_matrices=False)
+#     Vt        = tf.transpose(V)                     # now shape (n_features, n_features)
+#     components = Vt[:n_components]                  # top rows = right singular vectors
+#     singular_vals = S[:n_components]           # shape (n_components,)
+
+#     # Compute explained variance ratio
+#     variance = tf.square(S) / denom
+#     explained_variance = variance[:n_components]
+#     total_variance = tf.reduce_sum(variance)
+#     explained_ratio = explained_variance / total_variance
+
+#     # Project data
+#     scores = tf.matmul(Xc, components, transpose_b=True)
+
+#     return (
+#         components.numpy(),
+#         explained_ratio.numpy(),
+#         tf.squeeze(mean).numpy(),
+#         scores.numpy()
+#     )
