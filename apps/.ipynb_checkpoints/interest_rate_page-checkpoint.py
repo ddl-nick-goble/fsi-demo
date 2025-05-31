@@ -3,6 +3,14 @@ import pandas as pd
 import altair as alt
 from domino.data_sources import DataSourceClient
 
+st.markdown(
+    """
+    **Overview:**  
+    Browse daily interest rate curves in the `dbo.market_data.rate_curves` table.
+    Select a date to plot the curve across the entire term structure (ie. today - 30Y).
+    """
+)
+
 @st.cache_data
 def load_reference_rates():
     ds = DataSourceClient().get_datasource("market_data")
