@@ -48,6 +48,29 @@ def legacy_pca(X_np: np.ndarray,
 
     return components, explained_ratio, mean, scores
 
+# ── 7) Helper to build a PCA‐bumped curve ──────────────────────────────────
+def make_pca_bumped_curve(base_yc, tenors, loading, shift_bp):
+    """
+    1) Evaluate base_yc at the standard tenor grid → base_rates (shape=(n_tenors,))
+    2) bumped_rates = base_rates + loading*(shift_bp/100.0)
+    3) Return a function f(ttm_array) that linearly interpolates bumped_rates over tenors.
+       Outside the tenor range, we hold flat at the endpoint.
+    """
+    base_rates = base_yc(tenors)                       # in percent
+    bumped_rates = base_rates + loading * (shift_bp / 100.0)
+
+    def f(ttm_arr):
+        # np.interp: for each t in ttm_arr, interpolate between (tenors, bumped_rates)
+        return np.interp(
+            ttm_arr.ravel(),
+            tenors,
+            bumped_rates,
+            left=bumped_rates[0],
+            right=bumped_rates[-1]
+        ).reshape(ttm_arr.shape)
+
+    return f
+
 
 # import tensorflow as tf
 # def tf_pca(X_np, n_components):

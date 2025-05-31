@@ -19,3 +19,17 @@ def get_yield_curve(as_of_date, data_source):
 
     # Create interpolator (you can switch to kind='cubic' if needed)
     return interp1d(df["tenor_num"], df["rate"], kind="linear", fill_value="extrapolate")
+
+def bump_curve(base_yc, shift_bp):
+    def f(t_arr):
+        return base_yc(t_arr) + (shift_bp / 100.0)
+    return f
+
+shocks = {
+    'u25':  +25,
+    'd25':  -25,
+    'u100': +100,
+    'd100': -100,
+    'u200': +200,
+    'd200': -200,
+}
