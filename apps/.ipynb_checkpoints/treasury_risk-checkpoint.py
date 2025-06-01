@@ -192,7 +192,7 @@ def main():
             y=alt.Y(
                 "value:Q",
                 title="Metric Value",
-                axis=alt.Axis(labelExpr="format(datum.value, '.2f')", grid=True)
+                axis=alt.Axis(labelExpr="format(datum.value, '.2f')", grid=True), scale=alt.Scale(nice=True)
             ),
             color=alt.Color(
                 "security_type:N",
