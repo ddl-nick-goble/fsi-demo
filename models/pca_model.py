@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.decomposition import PCA
 
 
 def legacy_pca(X_np: np.ndarray,
@@ -48,7 +49,40 @@ def legacy_pca(X_np: np.ndarray,
 
     return components, explained_ratio, mean, scores
 
-# ── 7) Helper to build a PCA‐bumped curve ──────────────────────────────────
+
+def sklearn_pca(X_np: np.ndarray, n_components: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Fast PCA using scikit-learn’s implementation.
+    
+    Args:
+      X_np         : (n_samples, n_features) data matrix
+      n_components : how many PCs to extract
+    
+    Returns:
+      components       : (n_components, n_features) basis vectors
+      explained_ratio  : (n_components,) fraction of total variance
+      mean             : (n_features,) feature means (sklearn PCA centers data by default)
+      scores           : (n_samples, n_components) projected coordinates
+    """
+    # Initialize an sklearn PCA object. 'svd_solver="auto"' will pick the best method;
+    # for large matrices you could swap to 'randomized' explicitly, but 'auto' usually does the right thing.
+    pca = PCA(n_components=n_components, svd_solver="auto", whiten=False)
+    
+    # Fit + transform in one shot (centers X_np internally, uses C/Fortran routines for SVD)
+    scores = pca.fit_transform(X_np)           # shape = (n_samples, n_components)
+    
+    # The principal axes (“loadings”) are in pca.components_ (shape = (n_components, n_features))
+    components = pca.components_
+    
+    # Explained variance ratio for each component: shape = (n_components,)
+    explained_ratio = pca.explained_variance_ratio_
+    
+    # sklearn stores the mean used for centering in pca.mean_ (shape = (n_features,))
+    mean = pca.mean_
+    
+    return components, explained_ratio, mean, scores
+
+
 def make_pca_bumped_curve(base_yc, tenors, loading, shift_bp):
     """
     1) Evaluate base_yc at the standard tenor grid → base_rates (shape=(n_tenors,))
