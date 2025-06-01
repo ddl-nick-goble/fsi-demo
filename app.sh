@@ -40,8 +40,12 @@ path = "rate_curves_page.py"
 name = "Rate Curves"
 
 [[pages]]
-path = "liability_overview_page.py"
-name = "Liability Overview"
+path = "treasury_inventory.py"
+name = "Treasury Inventory"
+
+[[pages]]
+path = "treasury_risk.py"
+name = "Treasury Risk"
 EOF
 
 streamlit run apps/dashboard.py
