@@ -69,7 +69,7 @@ def sklearn_pca(X_np: np.ndarray, n_components: int) -> tuple[np.ndarray, np.nda
     # for large matrices you could swap to 'randomized' explicitly, but 'auto' usually does the right thing.
     pca = PCA(n_components=n_components, svd_solver="auto", whiten=False)
     mlflow.sklearn.log_model(
-        sk_model=raw_model,
+        sk_model=pca,
         artifact_path="demo_pca_model",
         registered_model_name="DemoPcaModel"
     )
