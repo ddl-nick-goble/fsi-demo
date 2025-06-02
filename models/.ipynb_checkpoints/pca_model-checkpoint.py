@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.decomposition import PCA
+import mlflow
 
 
 def legacy_pca(X_np: np.ndarray,
@@ -46,8 +47,8 @@ def legacy_pca(X_np: np.ndarray,
         for i in range(n_components)
     ])
     explained_ratio = explained_variance / total_var
-
-    return components, explained_ratio, mean, scores
+    model = None
+    return components, explained_ratio, mean, scores, model
 
 
 def sklearn_pca(X_np: np.ndarray, n_components: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -67,7 +68,13 @@ def sklearn_pca(X_np: np.ndarray, n_components: int) -> tuple[np.ndarray, np.nda
     # Initialize an sklearn PCA object. 'svd_solver="auto"' will pick the best method;
     # for large matrices you could swap to 'randomized' explicitly, but 'auto' usually does the right thing.
     pca = PCA(n_components=n_components, svd_solver="auto", whiten=False)
-    
+    mlflow.sklearn.log_model(
+        sk_model=raw_model,
+        artifact_path="demo_pca_model",
+        registered_model_name="DemoPcaModel"
+    )
+
+
     # Fit + transform in one shot (centers X_np internally, uses C/Fortran routines for SVD)
     scores = pca.fit_transform(X_np)           # shape = (n_samples, n_components)
     
@@ -79,8 +86,8 @@ def sklearn_pca(X_np: np.ndarray, n_components: int) -> tuple[np.ndarray, np.nda
     
     # sklearn stores the mean used for centering in pca.mean_ (shape = (n_features,))
     mean = pca.mean_
-    
-    return components, explained_ratio, mean, scores
+    model = pca
+    return components, explained_ratio, mean, scores, model
 
 
 def make_pca_bumped_curve(base_yc, tenors, loading, shift_bp):

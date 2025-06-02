@@ -13,3 +13,4 @@ for page_name, desc in pages:
     if st.button(page_name):
         st.experimental_set_query_params(page=page_name)
     st.write(f"*{desc}*")
+
