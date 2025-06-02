@@ -8,7 +8,7 @@ from datetime import date, datetime
 # ─── Data access ────────────────────────────────────────────────────────────
 ds = DataSourceClient().get_datasource("market_data")
 
-@st.cache_data
+@st.cache_data(ttl=120)
 def get_available_dates() -> list[date]:
     df = ds.query("""
         SELECT DISTINCT curve_date

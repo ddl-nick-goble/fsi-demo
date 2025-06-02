@@ -11,7 +11,7 @@ st.markdown(
     """
 )
 
-@st.cache_data
+@st.cache_data(ttl=120)
 def load_reference_rates():
     ds = DataSourceClient().get_datasource("market_data")
     sql = """

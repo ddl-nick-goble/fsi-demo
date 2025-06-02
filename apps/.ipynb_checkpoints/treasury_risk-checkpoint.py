@@ -7,7 +7,7 @@ from datetime import date
 # ─── Data access ────────────────────────────────────────────────────────────
 ds = DataSourceClient().get_datasource("market_data")
 
-@st.cache_data
+@st.cache_data(ttl=120)
 def get_available_dates() -> list[date]:
     df = ds.query("""
         SELECT DISTINCT valuation_date
@@ -17,12 +17,11 @@ def get_available_dates() -> list[date]:
     df["valuation_date"] = pd.to_datetime(df["valuation_date"])
     return df["valuation_date"].dt.date.tolist()
 
-@st.cache_data
 def get_security_types() -> list[str]:
     # We only ever need “Bill”, “Note”, “Bond”, “All Tsy” for filtering.
     return ["Bill", "Note", "Bond", "All Tsy"]
 
-@st.cache_data
+@st.cache_data(ttl=120)
 def load_metrics_data(
     start_date: date, end_date: date
 ) -> pd.DataFrame:
