@@ -9,9 +9,6 @@ ds = DataSourceClient().get_datasource("market_data")
 
 @st.cache_data
 def get_available_dates() -> list[date]:
-    """
-    Return a sorted list of all valuation_date values from the summary view.
-    """
     df = ds.query("""
         SELECT DISTINCT valuation_date
           FROM tsy_valuation_summary
@@ -22,39 +19,17 @@ def get_available_dates() -> list[date]:
 
 @st.cache_data
 def get_security_types() -> list[str]:
-    """
-    Return all distinct security_type values from the summary view.
-    """
-    df = ds.query("""
-        SELECT DISTINCT security_type
-          FROM tsy_valuation_summary
-         ORDER BY security_type
-    """).to_pandas()
-    return df["security_type"].dropna().astype(str).tolist()
+    # We only ever need “Bill”, “Note”, “Bond”, “All Tsy” for filtering.
+    return ["Bill", "Note", "Bond", "All Tsy"]
 
 @st.cache_data
 def load_metrics_data(
     start_date: date, end_date: date
 ) -> pd.DataFrame:
     """
-    Query valuation_date, security_type, and all requested metrics from tsy_valuation_summary
-    between start_date and end_date. Returns a DataFrame with columns:
-      - valuation_date (datetime)
-      - security_type (string)
-      - total_dv01
-      - total_quantity
-      - time_to_maturity_dv01_wavg
-      - krd1y_dv01_wavg
-      - krd2y_dv01_wavg
-      - krd3y_dv01_wavg
-      - krd5y_dv01_wavg
-      - krd7y_dv01_wavg
-      - krd10y_dv01_wavg
-      - krd20y_dv01_wavg
-      - krd30y_dv01_wavg
-      - pca1_dv01_dv01_wavg
-      - pca2_dv01_dv01_wavg
-      - pca3_dv01_dv01_wavg
+    Pull every relevant price_closedform … and price_closedform_pca* … column
+    that actually exists in tsy_valuation_summary.  Notice that PCA2 and PCA3 now
+    also have the “down” shocks in the DB.
     """
     sql = f"""
       SELECT
@@ -62,18 +37,40 @@ def load_metrics_data(
         security_type,
         total_dv01,
         total_quantity,
-        time_to_maturity_dv01_wavg,
-        krd1y_dv01_wavg,
-        krd2y_dv01_wavg,
-        krd3y_dv01_wavg,
-        krd5y_dv01_wavg,
-        krd7y_dv01_wavg,
-        krd10y_dv01_wavg,
-        krd20y_dv01_wavg,
-        krd30y_dv01_wavg,
-        pca1_dv01_dv01_wavg,
-        pca2_dv01_dv01_wavg,
-        pca3_dv01_dv01_wavg
+
+        -- base price levels (qty‐weighted)
+        price_closedform_qty_wavg,
+        price_closedform_u25bps_qty_wavg,
+        price_closedform_d25bps_qty_wavg,
+        price_closedform_u100bps_qty_wavg,
+        price_closedform_d100bps_qty_wavg,
+        price_closedform_u200bps_qty_wavg,
+        price_closedform_d200bps_qty_wavg,
+
+        -- PCA1 shocks (up & down)
+        price_closedform_pca1_u25bps_qty_wavg,
+        price_closedform_pca1_d25bps_qty_wavg,
+        price_closedform_pca1_u100bps_qty_wavg,
+        price_closedform_pca1_d100bps_qty_wavg,
+        price_closedform_pca1_u200bps_qty_wavg,
+        price_closedform_pca1_d200bps_qty_wavg,
+
+        -- PCA2 shocks (up & down)
+        price_closedform_pca2_u25bps_qty_wavg,
+        price_closedform_pca2_d25bps_qty_wavg,
+        price_closedform_pca2_u100bps_qty_wavg,
+        price_closedform_pca2_d100bps_qty_wavg,
+        price_closedform_pca2_u200bps_qty_wavg,
+        price_closedform_pca2_d200bps_qty_wavg,
+
+        -- PCA3 shocks (up & down)
+        price_closedform_pca3_u25bps_qty_wavg,
+        price_closedform_pca3_d25bps_qty_wavg,
+        price_closedform_pca3_u100bps_qty_wavg,
+        price_closedform_pca3_d100bps_qty_wavg,
+        price_closedform_pca3_u200bps_qty_wavg,
+        price_closedform_pca3_d200bps_qty_wavg
+
       FROM tsy_valuation_summary
      WHERE valuation_date BETWEEN '{start_date}' AND '{end_date}'
      ORDER BY valuation_date, security_type;
@@ -82,6 +79,7 @@ def load_metrics_data(
     if not df.empty:
         df["valuation_date"] = pd.to_datetime(df["valuation_date"])
     return df
+
 
 # ─── Streamlit App ───────────────────────────────────────────────────────────
 def main():
@@ -116,16 +114,17 @@ def main():
 
     # 3) Security types multi-select
     all_types = get_security_types()
+    default_types = [t for t in ["Bond", "All Tsy"] if t in all_types]
     selected_types = st.multiselect(
         "Select security types",
         options=all_types,
-        default=all_types  # all selected by default
+        default=default_types
     )
     if not selected_types:
         st.warning("Please select at least one security type.")
         return
 
-    # 4) Metric fields multi-select
+    # 4) Metric fields multi-select (for the Altair chart)
     metric_options = [
         "total_dv01",
         "total_quantity",
@@ -142,28 +141,118 @@ def main():
         "pca2_dv01_dv01_wavg",
         "pca3_dv01_dv01_wavg",
     ]
+    default_metrics = ["total_dv01"]
     selected_metrics = st.multiselect(
         "Select metrics to plot",
         options=metric_options,
-        default=metric_options  # all selected by default
+        default=default_metrics
     )
     if not selected_metrics:
         st.warning("Please select at least one metric.")
         return
 
-    # 5) Load the data
+    # 5) Load all the needed columns
     df = load_metrics_data(start_date, end_date)
     if df.empty:
         st.warning(f"No data between {start_date} and {end_date}.")
         return
 
-    # 6) Filter by chosen security types
+    # 6) Filter by the user‐selected security types
     df = df[df["security_type"].isin(selected_types)]
     if df.empty:
         st.warning("No data for the selected security types in this date range.")
         return
 
-    # 7) Melt into long form: each row → (date, type, metric, value)
+    # ─── Liability Shock Summary for end_date ──────────────────────────────
+    df_latest = df[df["valuation_date"].dt.date == end_date]
+    if not df_latest.empty:
+        rows = []
+
+        # We only build rows for “Bond” and “All Tsy” – each will have 4 sub‐rows
+        generic_labels = [
+            "−200bps loss ($ mm)",
+            "−100bps loss ($ mm)",
+            "−25bps loss ($ mm)",
+            "+25bps gain ($ mm)",
+            "+100bps gain ($ mm)",
+            "+200bps gain ($ mm)",
+        ]
+
+        for sec in ["Bond", "All Tsy"]:
+            tmp = df_latest[df_latest["security_type"] == sec]
+            if tmp.empty:
+                continue
+
+            r = tmp.iloc[0]
+            qty = r["total_quantity"]
+            base_price = r["price_closedform_qty_wavg"]
+
+            # helper to compute P&L in $ mm; if column is absent or NaN, return NaN
+            def pnl_mm(col_shock: str) -> float:
+                if col_shock not in r or pd.isna(r[col_shock]):
+                    return float("nan")
+                return (base_price - r[col_shock]) * qty / 1e6
+
+            total_cols = [
+                "price_closedform_d200bps_qty_wavg",
+                "price_closedform_d100bps_qty_wavg",
+                "price_closedform_d25bps_qty_wavg",
+                "price_closedform_u25bps_qty_wavg",
+                "price_closedform_u100bps_qty_wavg",
+                "price_closedform_u200bps_qty_wavg",
+            ]
+            pca1_cols = [
+                "price_closedform_pca1_d200bps_qty_wavg",
+                "price_closedform_pca1_d100bps_qty_wavg",
+                "price_closedform_pca1_d25bps_qty_wavg",
+                "price_closedform_pca1_u25bps_qty_wavg",
+                "price_closedform_pca1_u100bps_qty_wavg",
+                "price_closedform_pca1_u200bps_qty_wavg",
+            ]
+            pca2_cols = [
+                "price_closedform_pca2_d200bps_qty_wavg",
+                "price_closedform_pca2_d100bps_qty_wavg",
+                "price_closedform_pca2_d25bps_qty_wavg",
+                "price_closedform_pca2_u25bps_qty_wavg",
+                "price_closedform_pca2_u100bps_qty_wavg",
+                "price_closedform_pca2_u200bps_qty_wavg",
+            ]
+            pca3_cols = [
+                "price_closedform_pca3_d200bps_qty_wavg",
+                "price_closedform_pca3_d100bps_qty_wavg",
+                "price_closedform_pca3_d25bps_qty_wavg",
+                "price_closedform_pca3_u25bps_qty_wavg",
+                "price_closedform_pca3_u100bps_qty_wavg",
+                "price_closedform_pca3_u200bps_qty_wavg",
+            ]
+
+            # Now each mode only needs its list of shock‐columns (no DV01 field)
+            mode_defs = [
+                ("complete", total_cols),
+                ("level",    pca1_cols),
+                ("slope",    pca2_cols),
+                ("curvature",pca3_cols),
+            ]
+
+            for mode_name, col_list in mode_defs:
+                row = {"Type": f"{sec} ({mode_name})"}
+                for label, shock_col in zip(generic_labels, col_list):
+                    row[label] = pnl_mm(shock_col)
+                rows.append(row)
+
+        # 4) Build the DataFrame & format columns
+        if rows:
+            summary_df = pd.DataFrame(rows).set_index("Type")
+
+            styled = (
+                summary_df.style
+                .format("${:,.2f}", subset=generic_labels)
+            )
+
+            st.subheader(f"Liability Shock Summary (as of {end_date})")
+            st.dataframe(styled)
+
+    # ─── Rest of the app (Altair chart etc.) ──────────────────────────────────
     long_df = df.melt(
         id_vars=["valuation_date", "security_type"],
         value_vars=selected_metrics,
@@ -175,7 +264,6 @@ def main():
         st.warning("After filtering, no data remains to plot.")
         return
 
-    # 8) Build the Altair chart
     chart = (
         alt.Chart(long_df)
         .mark_line(point=True)
@@ -192,7 +280,8 @@ def main():
             y=alt.Y(
                 "value:Q",
                 title="Metric Value",
-                axis=alt.Axis(labelExpr="format(datum.value, '.2f')", grid=True), scale=alt.Scale(nice=True)
+                axis=alt.Axis(format=",.2f", grid=True),
+                scale=alt.Scale(zero=False)
             ),
             color=alt.Color(
                 "security_type:N",
@@ -220,7 +309,6 @@ def main():
 
     st.altair_chart(chart, use_container_width=True)
 
-    # 9) Show raw pivoted data if desired
     if st.checkbox("Show raw data"):
         pivoted = (
             long_df
