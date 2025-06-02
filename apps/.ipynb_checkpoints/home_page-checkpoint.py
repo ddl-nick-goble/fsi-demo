@@ -2,8 +2,6 @@ import streamlit as st
 
 st.title("Home")
 
-st.write("Welcome! Click a button to navigate:")
-
 pages = [
     ("Overnight Rates", "Inspect current overnight interest rates."),
     ("Rate Curves", "View and compare yield curves."),
