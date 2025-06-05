@@ -1,0 +1,20 @@
+name: Sync to ddl-nick-goble/fsi-demo
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v3
+
+      - name: Push to ddl-nick-goble/fsi-demo's mirror-sync branch
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add target https://x-access-token:${{ secrets.MIRROR_PAT }}@github.com/ddl-nick-goble/fsi-demo.git
+          git push --force target HEAD:mirror-sync
