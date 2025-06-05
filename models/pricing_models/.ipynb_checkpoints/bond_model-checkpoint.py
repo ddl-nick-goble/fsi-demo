@@ -2,12 +2,13 @@ import pandas as pd
 import numpy as np
 
 class Bond:
-    def __init__(self, cusip, issue_date, maturity_date, coupon, frequency, face_value=100):
+    def __init__(self, cusip, issue_date, maturity_date, coupon, frequency, quantity, face_value=100):
         self.cusip = cusip
         self.issue_date = pd.to_datetime(issue_date)
         self.maturity_date = pd.to_datetime(maturity_date)
         self.coupon_rate = float(coupon) if pd.notna(coupon) else 0.0
         self.frequency = frequency
+        self.quantity = float(quantity)
         self.face_value = float(face_value)
 
         # Determine periods per year
@@ -186,4 +187,12 @@ class Bond:
             pvs_k = (flows_mat * dfs_k).sum(axis=1)
             krd_matrix[:, idx] = pvs_base - pvs_k
 
+        qtys = np.array([b.quantity for b in bonds])
+
+        pvs_base        *= qtys
+        accrued_arr     *= qtys
+        clean_prices    *= qtys
+        dv01            *= qtys
+        krd_matrix      *= qtys[:, None]  # broadcast to (n_bonds, n_keys)
+        
         return pvs_base, accrued_arr, clean_prices, dv01, krd_matrix

@@ -1,4 +1,4 @@
-# Quant Research Library (quant-lib)
+# FSI Market Data
 
 This repository contains a modular quantitative research toolkit developed to support model development, validation, and deployment within Nuveen’s investment ecosystem. It provides a shared foundation for quants, model validators, and technologists to collaborate on research workflows in a governed, production-aligned environment.  
 
