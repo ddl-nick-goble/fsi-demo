@@ -12,9 +12,26 @@ jobs:
       - name: Checkout source repo
         uses: actions/checkout@v3
 
-      - name: Push to ddl-nick-goble/fsi-demo's mirror-sync branch
+      - name: Debuggggggg
         run: |
+          echo "Actor: $GITHUB_ACTOR"
+          echo "Repo: $GITHUB_REPOSITORY"
+          echo "Branch: $GITHUB_REF"
+          echo "Has token? ${{ secrets.MIRROR_PAT != '' }}"
+
+      - name: Push to ddl-nick-goble/fsi-demo's mirror-sync branch
+        env:
+          MIRROR_PAT: ${{ secrets.MIRROR_PAT }}
+        run: |
+          echo "Setting up git user"
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git remote add target https://x-access-token:${{ secrets.MIRROR_PAT }}@github.com/ddl-nick-goble/fsi-demo.git
+
+          echo "Adding remote with token"
+          git remote add target https://x-access-token:${MIRROR_PAT}@github.com/ddl-nick-goble/fsi-demo.git
+
+          echo "Remotes:"
+          git remote -v
+
+          echo "Pushing to mirror-sync branch"
           git push --force target HEAD:mirror-sync
