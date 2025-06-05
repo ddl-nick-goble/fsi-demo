@@ -7,7 +7,7 @@ This repository contains a modular quantitative research toolkit developed to su
 ## 🔍 Purpose
 
 The `quant-lib` project enables Nuveen’s quantitative teams to:
-- Rapidly prototype and validate financial models in Python
+- Rapidly prototype and validate financial models in Python 
 - Leverage consistent data structures and model interfaces
 - Track model performance over time with MLflow
 - Run workflows across sandbox, staging, and production environments
