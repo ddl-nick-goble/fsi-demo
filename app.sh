@@ -40,6 +40,10 @@ path = "rate_curve_surface.py"
 name = "Rate Curve Surface"
 
 [[pages]]
+path = "rate_simulations_page.py"
+name = "Rate Simulations"
+
+[[pages]]
 path = "treasury_inventory.py"
 name = "Treasury Inventory"
 
