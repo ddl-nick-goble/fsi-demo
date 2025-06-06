@@ -27,8 +27,7 @@ def load_metrics_data(
 ) -> pd.DataFrame:
     """
     Pull every relevant price_closedform … and price_closedform_pca* … column
-    that actually exists in tsy_valuation_summary.  Notice that PCA2 and PCA3 now
-    also have the “down” shocks in the DB.
+    that actually exists in tsy_valuation_summary.
     """
     sql = f"""
       SELECT
@@ -150,24 +149,17 @@ def main():
         st.warning("Please select at least one metric.")
         return
 
-    # 5) Load all the needed columns
-    df = load_metrics_data(start_date, end_date)
-    if df.empty:
+    # 5) Load all the needed columns (unfiltered)
+    df_all = load_metrics_data(start_date, end_date)
+    if df_all.empty:
         st.warning(f"No data between {start_date} and {end_date}.")
         return
 
-    # 6) Filter by the user‐selected security types
-    df = df[df["security_type"].isin(selected_types)]
-    if df.empty:
-        st.warning("No data for the selected security types in this date range.")
-        return
+    # ─── Liability Shock Summary for end_date (Bill, Note, Bond, All Tsy) ──────────────────────────────
+    df_latest_all = df_all[df_all["valuation_date"].dt.date == end_date]
 
-    # ─── Liability Shock Summary for end_date ──────────────────────────────
-    df_latest = df[df["valuation_date"].dt.date == end_date]
-    if not df_latest.empty:
+    if not df_latest_all.empty:
         rows = []
-
-        # We only build rows for “Bond” and “All Tsy” – each will have 4 sub‐rows
         generic_labels = [
             "−200bps loss ($ mm)",
             "−100bps loss ($ mm)",
@@ -176,80 +168,65 @@ def main():
             "+100bps gain ($ mm)",
             "+200bps gain ($ mm)",
         ]
+        total_cols = [
+            "price_closedform_d200bps_qty_wavg",
+            "price_closedform_d100bps_qty_wavg",
+            "price_closedform_d25bps_qty_wavg",
+            "price_closedform_u25bps_qty_wavg",
+            "price_closedform_u100bps_qty_wavg",
+            "price_closedform_u200bps_qty_wavg",
+        ]
 
-        for sec in ["Bond", "All Tsy"]:
-            tmp = df_latest[df_latest["security_type"] == sec]
+        for sec in ["Bill", "Note", "Bond", "All Tsy"]:
+            tmp = df_latest_all[df_latest_all["security_type"] == sec]
             if tmp.empty:
+                # No row for this type on end_date → fill with NaN
+                row = {"Type": sec}
+                for label in generic_labels:
+                    row[label] = float("nan")
+                rows.append(row)
                 continue
 
             r = tmp.iloc[0]
             qty = r["total_quantity"]
             base_price = r["price_closedform_qty_wavg"]
 
-            # helper to compute P&L in $ mm; if column is absent or NaN, return NaN
             def pnl_mm(col_shock: str) -> float:
                 if col_shock not in r or pd.isna(r[col_shock]):
                     return float("nan")
+                # Divide by 1e6 to convert to $ mm
                 return (base_price - r[col_shock]) * qty / 1e6
 
-            total_cols = [
-                "price_closedform_d200bps_qty_wavg",
-                "price_closedform_d100bps_qty_wavg",
-                "price_closedform_d25bps_qty_wavg",
-                "price_closedform_u25bps_qty_wavg",
-                "price_closedform_u100bps_qty_wavg",
-                "price_closedform_u200bps_qty_wavg",
-            ]
-            pca1_cols = [
-                "price_closedform_pca1_d200bps_qty_wavg",
-                "price_closedform_pca1_d100bps_qty_wavg",
-                "price_closedform_pca1_d25bps_qty_wavg",
-                "price_closedform_pca1_u25bps_qty_wavg",
-                "price_closedform_pca1_u100bps_qty_wavg",
-                "price_closedform_pca1_u200bps_qty_wavg",
-            ]
-            pca2_cols = [
-                "price_closedform_pca2_d200bps_qty_wavg",
-                "price_closedform_pca2_d100bps_qty_wavg",
-                "price_closedform_pca2_d25bps_qty_wavg",
-                "price_closedform_pca2_u25bps_qty_wavg",
-                "price_closedform_pca2_u100bps_qty_wavg",
-                "price_closedform_pca2_u200bps_qty_wavg",
-            ]
-            pca3_cols = [
-                "price_closedform_pca3_d200bps_qty_wavg",
-                "price_closedform_pca3_d100bps_qty_wavg",
-                "price_closedform_pca3_d25bps_qty_wavg",
-                "price_closedform_pca3_u25bps_qty_wavg",
-                "price_closedform_pca3_u100bps_qty_wavg",
-                "price_closedform_pca3_u200bps_qty_wavg",
-            ]
+            row = {"Type": sec}
+            for label, shock_col in zip(generic_labels, total_cols):
+                row[label] = pnl_mm(shock_col)
+            rows.append(row)
 
-            # Now each mode only needs its list of shock‐columns (no DV01 field)
-            mode_defs = [
-                ("complete", total_cols),
-                ("level",    pca1_cols),
-                ("slope",    pca2_cols),
-                ("curvature",pca3_cols),
-            ]
+        summary_df = pd.DataFrame(rows).set_index("Type")
+        summary_df = summary_df / 1e6
 
-            for mode_name, col_list in mode_defs:
-                row = {"Type": f"{sec} ({mode_name})"}
-                for label, shock_col in zip(generic_labels, col_list):
-                    row[label] = pnl_mm(shock_col)
-                rows.append(row)
+        # Display numbers in $ mm, with 3 decimal places
+        styled = summary_df.style.format("${:,.2f}", subset=generic_labels)
+        styled = (
+            summary_df.style
+            .format("${:,.2f}", subset=generic_labels)
+            .set_table_styles([
+                # Right-align header cells
+                {"selector": "th", "props": [("text-align", "right")]},
+                # Right-align data cells
+                {"selector": "td", "props": [("text-align", "right")]}
+            ])
+        )
 
-        # 4) Build the DataFrame & format columns
-        if rows:
-            summary_df = pd.DataFrame(rows).set_index("Type")
+        st.subheader(f"Liability Shock Summary (as of {end_date})")
+        st.dataframe(styled)
 
-            styled = (
-                summary_df.style
-                .format("${:,.2f}", subset=generic_labels)
-            )
 
-            st.subheader(f"Liability Shock Summary (as of {end_date})")
-            st.dataframe(styled)
+    # ─── Now filter df_all by the user‐selected security types for the chart ─────────────
+    df = df_all[df_all["security_type"].isin(selected_types)]
+    if df.empty:
+        st.warning("No data for the selected security types in this date range.")
+        return
 
     # ─── Rest of the app (Altair chart etc.) ──────────────────────────────────
     long_df = df.melt(

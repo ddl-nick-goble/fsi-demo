@@ -32,12 +32,12 @@ path = "home_page.py"
 name = "Home"
 
 [[pages]]
-path = "interest_rate_page.py"
-name = "Overnight Rates"
-
-[[pages]]
 path = "rate_curves_page.py"
 name = "Rate Curves"
+
+[[pages]]
+path = "rate_curve_surface.py"
+name = "Rate Curve Surface"
 
 [[pages]]
 path = "treasury_inventory.py"
@@ -48,8 +48,9 @@ path = "treasury_risk.py"
 name = "Treasury Risk"
 
 [[pages]]
-path = "rate_curve_surface.py"
-name = "Rate Curve Surface"
+path = "interest_rate_page.py"
+name = "Overnight Rates"
+
 EOF
 
 streamlit run apps/dashboard.py

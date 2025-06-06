@@ -1,5 +1,3 @@
-# app/yield_curve_surface.py
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -8,7 +6,6 @@ from datetime import datetime
 from pathlib import Path
 import sys
 
-# If you’re using Domino Data Lab’s DataSourceClient:
 from domino.data_sources import DataSourceClient  
 ds = DataSourceClient().get_datasource("market_data")
 
@@ -77,29 +74,26 @@ if rates_df.empty:
     st.warning("No data available for the selected range and curve type.")
     st.stop()
 
-# ─────────────────────────────────────────────────────────────
-# Pivot & forward‐fill missing tenor values (preserve all dates)
-# ─────────────────────────────────────────────────────────────
+# Pivot & forward‐fill missing tenor values
 pivot = (
     rates_df
     .pivot(index="curve_date", columns="tenor_num", values="rate")
     .sort_index()
 )
-
-# Instead of dropna(how="any"), forward‐fill so older dates remain
 pivot = pivot.ffill(axis=0)
 
-# ─────────────────────────────────────────────────────────────
-# Coordinates for the surface
-# ─────────────────────────────────────────────────────────────
 date_index = pivot.index
 tenor_index = pivot.columns.tolist()
 date_strs = [d.strftime("%Y-%m-%d") for d in date_index]
 z_values = pivot.values  # shape = (n_dates, n_tenors)
 
 # ─────────────────────────────────────────────────────────────
-# Build and display a larger Plotly 3D surface
+# Reverse the date axis so it isn’t “upside‐down”
 # ─────────────────────────────────────────────────────────────
+date_strs = date_strs[::-1]
+z_values = z_values[::-1, :]
+
+# Build and display a larger Plotly 3D surface
 fig = go.Figure(
     data=[
         go.Surface(
@@ -121,7 +115,7 @@ fig.update_layout(
         zaxis=dict(title="Rate (%)", autorange=True),
     ),
     margin=dict(l=20, r=20, t=60, b=20),
-    height=1000  # bump up height further to fill more screen space
+    height=1000
 )
 
 st.plotly_chart(fig, use_container_width=True, height=1000)
