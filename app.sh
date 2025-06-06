@@ -46,6 +46,10 @@ name = "Treasury Inventory"
 [[pages]]
 path = "treasury_risk.py"
 name = "Treasury Risk"
+
+[[pages]]
+path = "rate_curve_surface.py"
+name = "Rate Curve Surface"
 EOF
 
 streamlit run apps/dashboard.py
