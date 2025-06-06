@@ -1,8 +1,7 @@
-import mlflow
-import mlflow.sklearn
+import numpy as np
 from sklearn.base import BaseEstimator
+from sklearn.covariance import EmpiricalCovariance
 
-from mlflow.models.signature import infer_signature
 
 class EmpiricalCovarianceModel(BaseEstimator):
     def __init__(self):
