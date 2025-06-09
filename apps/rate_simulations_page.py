@@ -79,12 +79,28 @@ def main():
     col1, col2 = st.columns(2, vertical_alignment="bottom")
     col3, col4 = st.columns(2)
     with col3:
-        as_of = st.selectbox(
+        # bounds for the picker
+        min_date, max_date = dates[0], dates[-1]
+        # default to the latest available
+        picked = st.date_input(
             "As-of Date",
-            options=dates,
-            index=len(dates) - 1,
-            format_func=lambda d: d.strftime("%Y-%m-%d")
+            value=max_date,
+            min_value=min_date,
+            max_value=max_date
         )
+        # if they pick a date with no data, snap down to the closest earlier one
+        if picked not in dates:
+            # find all available ≤ picked
+            earlier = [d for d in dates if d <= picked]
+            if earlier:
+                as_of = max(earlier)
+                st.warning(f"No data for {picked}; using {as_of} instead.")
+            else:
+                # no earlier dates (shouldn't happen unless picked < min_date)
+                as_of = min_date
+                st.warning(f"No data before {picked}; using {as_of}.")
+        else:
+            as_of = picked
 
     with col1:
         st.markdown(
