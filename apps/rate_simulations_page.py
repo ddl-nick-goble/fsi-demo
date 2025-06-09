@@ -76,13 +76,27 @@ def main():
         return
 
     # Top controls: three columns
-    col1, col2 = st.columns(2)
-    with col1:
+    col1, col2 = st.columns(2, vertical_alignment="bottom")
+    col3, col4 = st.columns(2)
+    with col3:
         as_of = st.selectbox(
             "As-of Date",
             options=dates,
             index=len(dates) - 1,
             format_func=lambda d: d.strftime("%Y-%m-%d")
+        )
+
+    with col1:
+        st.markdown(
+            """
+            <p>This interactive app lets you explore projected yield-curve risk bands for U.S. Treasuries.</p>
+            <ol style="font-size:smaller; padding-left:1.2em; margin-top:0.5em;">
+              <li><strong>Select an As-of Date</strong> to choose your base yield curve.</li>
+              <li><strong>Pick a Forecast Horizon</strong> (Days Forward) for the cone projection.</li>
+              <li><strong>Compare up to Two Models</strong> side-by-side to see their 1%–99% and 10%–90% bands.</li>
+            </ol>
+            """,
+            unsafe_allow_html=True
         )
     with col2:
         days_opts = get_available_days(as_of)
@@ -91,12 +105,14 @@ def main():
             options=days_opts,
             index=0
         )
-    model_opts = get_available_models(as_of, days_forward)
-    selected_models = st.multiselect(
-        "Model Types",
-        options=model_opts,
-        default=model_opts[:2]
-    )
+    with col4:
+        model_opts = get_available_models(as_of, days_forward)
+        selected_models = st.multiselect(
+            "Model Types",
+            options=model_opts,
+            default=model_opts[:2]
+        )
+
     if len(selected_models) > 2:
         st.error("Please select at most 2 models.")
         selected_models = selected_models[:2]
@@ -141,7 +157,7 @@ def main():
                     ),
                     y="1%:Q",
                     y2="99%:Q",
-                    color=alt.Color("model_type:N", title="Model")
+                    color=alt.Color("model_type:N", title="Model", legend=None)
                 )
             )
             # top & bottom boundary lines
@@ -169,7 +185,7 @@ def main():
                     ),
                     y="10%:Q",
                     y2="90%:Q",
-                    color=alt.Color("model_type:N", title="Model")
+                    color=alt.Color("model_type:N", title="Model", legend=None)
                 )
             )
             for pct in ["10%", "90%"]:
@@ -208,7 +224,7 @@ def main():
         alt.layer(*layers)
         .properties(
             width=700,
-            height=400,
+            height=600,
             title=f"{days_forward}-Day IR Cones on {as_of}"
         )
         .configure_title(fontSize=18, fontWeight="bold")
