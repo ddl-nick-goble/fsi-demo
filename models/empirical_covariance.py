@@ -4,6 +4,8 @@ from sklearn.covariance import EmpiricalCovariance
 
 
 class EmpiricalCovarianceModel(BaseEstimator):
+    name = "DefaultEmpiricalCovarianceEstimator"
+
     def __init__(self):
         self._cov = None
 
