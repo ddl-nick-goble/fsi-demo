@@ -29,6 +29,17 @@ def get_available_days(as_of_date: date) -> list[int]:
     """).to_pandas()
     return df["days_forward"].astype(int).tolist()
 
+@st.cache_data(ttl=120)
+def get_available_models(as_of_date: date, days_forward: int) -> list[str]:
+    df = ds.query(f"""
+        SELECT DISTINCT model_type
+          FROM rate_cones
+         WHERE curve_date    = '{as_of_date}'
+           AND days_forward = {days_forward}
+         ORDER BY model_type
+    """).to_pandas()
+    return df["model_type"].tolist()
+
 @st.cache_data
 def load_base_curve(as_of_date: date) -> pd.DataFrame:
     sql = f"""
@@ -40,15 +51,22 @@ def load_base_curve(as_of_date: date) -> pd.DataFrame:
     return ds.query(sql).to_pandas()
 
 @st.cache_data
-def load_cone_curves(as_of_date: date, days_forward: int) -> pd.DataFrame:
+def load_cone_curves(as_of_date: date,
+                     days_forward: int,
+                     model_types: list[str]) -> pd.DataFrame:
+    if not model_types:
+        return pd.DataFrame(columns=["tenor_num","cone_type","rate"])
+    in_list = ",".join(f"'{m}'" for m in model_types)
     sql = f"""
     SELECT tenor_num, cone_type, rate
       FROM rate_cones
      WHERE curve_date    = '{as_of_date}'
        AND days_forward = {days_forward}
+       AND model_type  IN ({in_list})
      ORDER BY tenor_num, cone_type;
     """
     return ds.query(sql).to_pandas()
+
 
 # ─── App ───────────────────────────────────────────────────────────────────
 def main():
@@ -57,8 +75,8 @@ def main():
         st.error("No cone dates found in rate_cones.")
         return
 
+    # Top controls: three columns
     col1, col2 = st.columns(2)
-    
     with col1:
         as_of = st.selectbox(
             "As-of Date",
@@ -66,7 +84,6 @@ def main():
             index=len(dates) - 1,
             format_func=lambda d: d.strftime("%Y-%m-%d")
         )
-    
     with col2:
         days_opts = get_available_days(as_of)
         days_forward = st.selectbox(
@@ -74,20 +91,24 @@ def main():
             options=days_opts,
             index=0
         )
-
+    model_opts = get_available_models(as_of, days_forward)
+    selected_models = st.multiselect(
+        "Model Types",
+        options=model_opts,
+        default=model_opts
+    )
 
     # ─── Load data ────────────────────────────────────────────────────────────
     base_df = load_base_curve(as_of)
-    cone_df = load_cone_curves(as_of, days_forward)
+    cone_df = load_cone_curves(as_of, days_forward, selected_models)
 
     if base_df.empty or cone_df.empty:
-        st.warning("No data for that date/horizon combination.")
+        st.warning("No data for that date/horizon/model combination.")
         return
 
     base_df["tenor_num"] = base_df["tenor_num"].round(2)
     cone_df["tenor_num"] = cone_df["tenor_num"].round(2)
 
-    # pivot cone curves
     cone_pivot = cone_df.pivot(
         index="tenor_num",
         columns="cone_type",
@@ -127,10 +148,10 @@ def main():
                 )
             )
 
-    # base curve on top
+    # base curve
     layers.append(
         alt.Chart(base_df)
-        .mark_line(strokeWidth=3, interpolate="monotone")
+        .mark_line(color="crimson", strokeWidth=3, interpolate="monotone")
         .encode(
             x=alt.X(
                 f"tenor_num:{'O' if scale_mode=='even spacing' else 'Q'}",
@@ -151,33 +172,32 @@ def main():
         values="rate"
     ).reset_index()
 
-    # ─── shaded 1%–99% band ───────────────────────────────────────────────────
-    layers.append(alt.Chart(cone_pivot).mark_area(
-        color="lightblue",
-        opacity=0.05
-    ).encode(
-        x=alt.X(
-            f"tenor_num:{'O' if scale_mode=='even spacing' else 'Q'}",
-            title="Tenor (years)",
-            axis=alt.Axis(labelExpr="format(datum.value, '.2f')", grid=True)
-        ),
-        y=alt.Y("1%:Q", title="Yield (%)", scale=alt.Scale(zero=False)),
-        y2="99%:Q"
-    ))
-    
-    layers.append(alt.Chart(cone_pivot).mark_area(
-        color="lightblue",
-        opacity=0.1
-    ).encode(
-        x=alt.X(
-            f"tenor_num:{'O' if scale_mode=='even spacing' else 'Q'}",
-            title="Tenor (years)",
-            axis=alt.Axis(labelExpr="format(datum.value, '.2f')", grid=True)
-        ),
-        y=alt.Y("10%:Q", title="Yield (%)", scale=alt.Scale(zero=False)),
-        y2="90%:Q"
-    ))
-    
+    # shaded bands
+    layers.append(
+        alt.Chart(cone_pivot).mark_area(color="lightblue", opacity=0.05)
+        .encode(
+            x=alt.X(
+                f"tenor_num:{'O' if scale_mode=='even spacing' else 'Q'}",
+                title="Tenor (years)",
+                axis=alt.Axis(labelExpr="format(datum.value, '.2f')", grid=True)
+            ),
+            y=alt.Y("1%:Q", scale=alt.Scale(zero=False)),
+            y2="99%:Q"
+        )
+    )
+    layers.append(
+        alt.Chart(cone_pivot).mark_area(color="lightblue", opacity=0.1)
+        .encode(
+            x=alt.X(
+                f"tenor_num:{'O' if scale_mode=='even spacing' else 'Q'}",
+                title="Tenor (years)",
+                axis=alt.Axis(labelExpr="format(datum.value, '.2f')", grid=True)
+            ),
+            y=alt.Y("10%:Q", scale=alt.Scale(zero=False)),
+            y2="90%:Q"
+        )
+    )
+
     # ─── Compose & render ─────────────────────────────────────────────────────
     chart = (
         alt.layer(*layers)
@@ -190,28 +210,31 @@ def main():
         .configure_axis(labelFontSize=12, titleFontSize=14)
         .interactive()
     )
+
     st.altair_chart(chart, use_container_width=True)
+
+    # manual legend
     st.markdown(
         """
-        <div style="display:flex; justify-content:center; gap:2em; margin-top: -1em;">
+        <div style="display:flex; justify-content:center; gap:2em; margin-top:-1em;">
           <div style="display:flex; align-items:center;">
-            <svg width="20" height="6"><rect width="20" height="6" style="fill:lightblue"/></svg>
+            <svg width="20" height="6"><rect width="20" height="6" style="fill:crimson"/></svg>
             &nbsp;Base Curve
           </div>
           <div style="display:flex; align-items:center;">
-            <svg width="20" height="6"><rect width="20" height="6" style="fill:lightblue;opacity:0.15"/></svg>
+            <svg width="20" height="6"><rect width="20" height="6" style="fill:lightblue;opacity:0.05"/></svg>
             &nbsp;1%–99% Band
           </div>
           <div style="display:flex; align-items:center;">
-            <svg width="20" height="6"><rect width="20" height="6" style="fill:lightblue;opacity:0.3"/></svg>
+            <svg width="20" height="6"><rect width="20" height="6" style="fill:lightblue;opacity:0.1"/></svg>
             &nbsp;10%–90% Band
           </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    
-    # 3) X-axis spacing toggle
+
+    # X-axis toggle
     st.radio(
         "X-axis spacing:",
         options=["linear", "even spacing"],
