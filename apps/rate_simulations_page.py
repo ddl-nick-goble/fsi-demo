@@ -6,6 +6,9 @@ import altair as alt
 from domino.data_sources import DataSourceClient
 from datetime import date
 
+BASE_COLOR   = "crimson"
+MODEL_COLORS = ["#1f77b4", "#ff7f0e"]  # first model → blue, second → orange
+
 # ─── Data access ────────────────────────────────────────────────────────────
 ds = DataSourceClient().get_datasource("market_data")
 
@@ -50,23 +53,20 @@ def load_base_curve(as_of_date: date) -> pd.DataFrame:
     """
     return ds.query(sql).to_pandas()
 
-@st.cache_data
-def load_cone_curves(as_of_date: date,
-                     days_forward: int,
-                     model_types: list[str]) -> pd.DataFrame:
-    if not model_types:
-        return pd.DataFrame(columns=["tenor_num","cone_type","rate"])
-    in_list = ",".join(f"'{m}'" for m in model_types)
+@st.cache_data(ttl=120)
+def load_all_cone_curves(as_of_date: date, days_forward: int) -> pd.DataFrame:
     sql = f"""
-    SELECT tenor_num, cone_type, rate
-      FROM rate_cones
-     WHERE curve_date    = '{as_of_date}'
-       AND days_forward = {days_forward}
-       AND model_type  IN ({in_list})
-     ORDER BY tenor_num, cone_type;
+    SELECT
+      tenor_num,
+      cone_type,
+      rate,
+      model_type
+    FROM rate_cones
+    WHERE curve_date   = '{as_of_date}'
+      AND days_forward = {days_forward}
+    ORDER BY tenor_num, cone_type, model_type;
     """
     return ds.query(sql).to_pandas()
-
 
 # ─── App ───────────────────────────────────────────────────────────────────
 def main():
@@ -95,12 +95,16 @@ def main():
     selected_models = st.multiselect(
         "Model Types",
         options=model_opts,
-        default=model_opts
+        default=model_opts[:2]
     )
+    if len(selected_models) > 2:
+        st.error("Please select at most 2 models.")
+        selected_models = selected_models[:2]
 
     # ─── Load data ────────────────────────────────────────────────────────────
     base_df = load_base_curve(as_of)
-    cone_df = load_cone_curves(as_of, days_forward, selected_models)
+    all_cones = load_all_cone_curves(as_of, days_forward)
+    cone_df = all_cones[all_cones["model_type"].isin(selected_models)]
 
     if base_df.empty or cone_df.empty:
         st.warning("No data for that date/horizon/model combination.")
@@ -109,49 +113,80 @@ def main():
     base_df["tenor_num"] = base_df["tenor_num"].round(2)
     cone_df["tenor_num"] = cone_df["tenor_num"].round(2)
 
-    cone_pivot = cone_df.pivot(
-        index="tenor_num",
-        columns="cone_type",
-        values="rate"
-    )
+    # ─── Build layers (base curve + one 1–99% and one 10–90% band per model) ────
     scale_mode = st.session_state.get("scale_mode", "linear")
-
-    # ─── Build layers ─────────────────────────────────────────────────────────
     layers = []
-    for low, high, opacity in [("1%", "99%", 0.2), ("10%", "90%", 0.4)]:
-        if low in cone_pivot.columns and high in cone_pivot.columns:
-            band = (
-                cone_pivot[[low, high]]
-                .reset_index()
-                .melt(
-                    id_vars="tenor_num",
-                    var_name="percentile",
-                    value_name="rate"
-                )
-            )
+    
+    # For each selected model, draw two bands
+    for idx, model in enumerate(selected_models):
+        model_color = MODEL_COLORS[idx]
+        df_model = cone_df[cone_df["model_type"] == model]
+        pivot_model = df_model.pivot_table(
+            index="tenor_num",
+            columns="cone_type",
+            values="rate",
+            aggfunc="mean"
+        ).reset_index()
+    
+        # 1%–99% band
+        if {"1%", "99%"}.issubset(pivot_model.columns):
+            band1 = pivot_model[["tenor_num", "1%", "99%"]].copy()
+            band1["model_type"] = model
             layers.append(
-                alt.Chart(band)
-                .mark_line(opacity=opacity, strokeWidth=2, interpolate="monotone")
+                alt.Chart(band1)
+                .mark_area(color=model_color, opacity=0.2, interpolate="monotone")
                 .encode(
                     x=alt.X(
-                        f"tenor_num:{'O' if scale_mode=='even spacing' else 'Q'}",
-                        title="Tenor (years)",
-                        axis=alt.Axis(labelExpr="format(datum.value, '.2f')", grid=True)
+                        f"tenor_num:{'O' if scale_mode=='even spacing' else 'Q'}"
                     ),
-                    y=alt.Y(
-                        "rate:Q",
-                        title="Yield (%)",
-                        scale=alt.Scale(zero=False),
-                        axis=alt.Axis(labelExpr="format(datum.value, '.2f') + '%'", grid=True)
-                    ),
-                    detail="percentile:N"
+                    y="1%:Q",
+                    y2="99%:Q",
+                    color=alt.Color("model_type:N", title="Model")
                 )
             )
+            # top & bottom boundary lines
+            for pct in ["1%", "99%"]:
+                layers.append(
+                    alt.Chart(band1)
+                    .mark_line(color=model_color, strokeWidth=2, interpolate="monotone")
+                    .encode(
+                        x=alt.X(f"tenor_num:{'O' if scale_mode=='even spacing' else 'Q'}"),
+                        y=alt.Y(f"{pct}:Q"),
+                        detail=alt.Detail("model_type:N")
+                    )
+                )
+    
+        # 10%–90% band
+        if {"10%", "90%"}.issubset(pivot_model.columns):
+            band2 = pivot_model[["tenor_num", "10%", "90%"]].copy()
+            band2["model_type"] = model
+            layers.append(
+                alt.Chart(band2)
+                .mark_area(color=model_color, opacity=0.1, interpolate="monotone")
+                .encode(
+                    x=alt.X(
+                        f"tenor_num:{'O' if scale_mode=='even spacing' else 'Q'}"
+                    ),
+                    y="10%:Q",
+                    y2="90%:Q",
+                    color=alt.Color("model_type:N", title="Model")
+                )
+            )
+            for pct in ["10%", "90%"]:
+                layers.append(
+                    alt.Chart(band2)
+                    .mark_line(color=model_color, strokeDash=[4,2], strokeWidth=1, interpolate="monotone")
+                    .encode(
+                        x=alt.X(f"tenor_num:{'O' if scale_mode=='even spacing' else 'Q'}"),
+                        y=alt.Y(f"{pct}:Q"),
+                        detail=alt.Detail("model_type:N")
+                    )
+                )
 
-    # base curve
+    # Base curve layer
     layers.append(
         alt.Chart(base_df)
-        .mark_line(color="crimson", strokeWidth=3, interpolate="monotone")
+        .mark_line(color=BASE_COLOR, strokeWidth=3, interpolate="monotone")
         .encode(
             x=alt.X(
                 f"tenor_num:{'O' if scale_mode=='even spacing' else 'Q'}",
@@ -161,42 +196,12 @@ def main():
             y=alt.Y(
                 "rate:Q",
                 title="Yield (%)",
+                scale=alt.Scale(zero=False),
                 axis=alt.Axis(labelExpr="format(datum.value, '.2f') + '%'", grid=True)
             )
         )
     )
-
-    cone_pivot = cone_df.pivot(
-        index="tenor_num",
-        columns="cone_type",
-        values="rate"
-    ).reset_index()
-
-    # shaded bands
-    layers.append(
-        alt.Chart(cone_pivot).mark_area(color="lightblue", opacity=0.05)
-        .encode(
-            x=alt.X(
-                f"tenor_num:{'O' if scale_mode=='even spacing' else 'Q'}",
-                title="Tenor (years)",
-                axis=alt.Axis(labelExpr="format(datum.value, '.2f')", grid=True)
-            ),
-            y=alt.Y("1%:Q", scale=alt.Scale(zero=False)),
-            y2="99%:Q"
-        )
-    )
-    layers.append(
-        alt.Chart(cone_pivot).mark_area(color="lightblue", opacity=0.1)
-        .encode(
-            x=alt.X(
-                f"tenor_num:{'O' if scale_mode=='even spacing' else 'Q'}",
-                title="Tenor (years)",
-                axis=alt.Axis(labelExpr="format(datum.value, '.2f')", grid=True)
-            ),
-            y=alt.Y("10%:Q", scale=alt.Scale(zero=False)),
-            y2="90%:Q"
-        )
-    )
+    
 
     # ─── Compose & render ─────────────────────────────────────────────────────
     chart = (
@@ -210,29 +215,68 @@ def main():
         .configure_axis(labelFontSize=12, titleFontSize=14)
         .interactive()
     )
-
     st.altair_chart(chart, use_container_width=True)
+    # ─── Dynamic legend ───────────────────────────────────────────────────────
+    legend_items = []
 
-    # manual legend
-    st.markdown(
-        """
-        <div style="display:flex; justify-content:center; gap:2em; margin-top:-1em;">
-          <div style="display:flex; align-items:center;">
-            <svg width="20" height="6"><rect width="20" height="6" style="fill:crimson"/></svg>
-            &nbsp;Base Curve
-          </div>
-          <div style="display:flex; align-items:center;">
-            <svg width="20" height="6"><rect width="20" height="6" style="fill:lightblue;opacity:0.05"/></svg>
-            &nbsp;1%–99% Band
-          </div>
-          <div style="display:flex; align-items:center;">
-            <svg width="20" height="6"><rect width="20" height="6" style="fill:lightblue;opacity:0.1"/></svg>
-            &nbsp;10%–90% Band
-          </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    # Base Curve (solid red)
+    legend_items.append(
+        f'<div style="display:flex; align-items:center; gap:0.5em;">'
+        f'<svg width="20" height="2">'
+        f'<line x1="0" y1="1" x2="20" y2="1" style="stroke:{BASE_COLOR};stroke-width:3;"/>'
+        f'</svg> Base Curve'
+        f'</div>'
     )
+
+    # First model bands (solid & dotted blue)
+    if selected_models:
+        m0 = selected_models[0]
+        c0 = MODEL_COLORS[0]
+        legend_items.append(
+            '<div style="display:flex; flex-direction:column; gap:0.25em;">'
+              f'<div style="display:flex; align-items:center; gap:0.5em;">'
+                f'<svg width="20" height="2">'
+                f'<line x1="0" y1="1" x2="20" y2="1" '
+                  f'style="stroke:{c0};stroke-width:2;"/>'
+                f'</svg> {m0} 1%–99% Band'
+              f'</div>'
+              f'<div style="display:flex; align-items:center; gap:0.5em;">'
+                f'<svg width="20" height="2">'
+                f'<line x1="0" y1="1" x2="20" y2="1" '
+                  f'style="stroke:{c0};stroke-width:1;stroke-dasharray:4 2;"/>'
+                f'</svg> {m0} 10%–90% Band'
+              f'</div>'
+            '</div>'
+        )
+
+    # Second model bands (solid & dotted orange), if present
+    if len(selected_models) > 1:
+        m1 = selected_models[1]
+        c1 = MODEL_COLORS[1]
+        legend_items.append(
+            '<div style="display:flex; flex-direction:column; gap:0.25em;">'
+              f'<div style="display:flex; align-items:center; gap:0.5em;">'
+                f'<svg width="20" height="2">'
+                f'<line x1="0" y1="1" x2="20" y2="1" '
+                  f'style="stroke:{c1};stroke-width:2;"/>'
+                f'</svg> {m1} 1%–99% Band'
+              f'</div>'
+              f'<div style="display:flex; align-items:center; gap:0.5em;">'
+                f'<svg width="20" height="2">'
+                f'<line x1="0" y1="1" x2="20" y2="1" '
+                  f'style="stroke:{c1};stroke-width:1;stroke-dasharray:4 2;"/>'
+                f'</svg> {m1} 10%–90% Band'
+              f'</div>'
+            '</div>'
+        )
+
+    # Render all columns side-by-side
+    legend_html = (
+        '<div style="display:flex; justify-content:center; gap:2em; margin-top:-1em;">'
+        + ''.join(legend_items) +
+        '</div>'
+    )
+    st.markdown(legend_html, unsafe_allow_html=True)
 
     # X-axis toggle
     st.radio(
@@ -242,6 +286,7 @@ def main():
         key="scale_mode",
         horizontal=True
     )
+
 
 
 if __name__ == "__main__":
