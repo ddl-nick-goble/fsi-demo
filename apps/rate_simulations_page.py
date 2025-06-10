@@ -308,17 +308,17 @@ def main():
         + ''.join(legend_items) +
         '</div>'
     )
-    st.markdown(legend_html, unsafe_allow_html=True)
-
-    # X-axis toggle
-    st.radio(
-        "X-axis spacing:",
-        options=["linear", "even spacing"],
-        index=0,
-        key="scale_mode",
-        horizontal=True
-    )
-
+    col5, col6 = st.columns(2, vertical_alignment="bottom")
+    with col5:
+        st.radio(
+            "X-axis spacing:",
+            options=["linear", "even spacing"],
+            index=0,
+            key="scale_mode",
+            horizontal=True
+        )
+    with col6:
+        st.markdown(legend_html, unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
